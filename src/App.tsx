@@ -43,10 +43,6 @@ function App() {
             const dataUrl = await toPng(gridRef.current, {
                 cacheBust: true,
                 skipFonts: true,
-                // Allow blob URLs and skip CORS checks
-                skipAutoScale: false,
-                canvasWidth: 800,
-                canvasHeight: 800,
             });
             const link = document.createElement('a');
             link.download = 'photo-grid.png';
@@ -131,8 +127,7 @@ function App() {
                     className="relative bg-white shadow-2xl"
                     style={{
                         width: '800px',
-                        aspectRatio: '1/1',
-                        height: '800px',
+                        aspectRatio: currentLayout.aspectRatio,
                     }}
                 >
                     <div

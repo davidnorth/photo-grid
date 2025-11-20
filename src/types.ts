@@ -25,5 +25,6 @@ export type LayoutNode = LeafNode | SplitNode;
 export interface Layout {
   id: string;
   name: string;
+  aspectRatio: number; // width / height ratio
   root: LayoutNode;
 }

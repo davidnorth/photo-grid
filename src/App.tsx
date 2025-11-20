@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { DEFAULT_LAYOUTS } from './constants';
 import { Layout, ImageState } from './types';
 import { LayoutRenderer } from './components/LayoutRenderer';
@@ -9,7 +9,30 @@ function App() {
     const [currentLayout, setCurrentLayout] = useState<Layout>(DEFAULT_LAYOUTS[1]); // Default to 2 columns
     const [images, setImages] = useState<Record<string, ImageState>>({});
     const [padding, setPadding] = useState(10);
+    const [scale, setScale] = useState(1);
     const gridRef = useRef<HTMLDivElement>(null);
+
+    // Calculate scale factor based on window size
+    useEffect(() => {
+        const calculateScale = () => {
+            const sidebarWidth = 256;
+            const containerPadding = 32; // 16px on each side
+            const gridWidth = 800;
+            const gridHeight = gridWidth / currentLayout.aspectRatio;
+
+            const availableWidth = window.innerWidth - sidebarWidth - containerPadding;
+            const availableHeight = window.innerHeight - containerPadding;
+
+            const scaleX = availableWidth / gridWidth;
+            const scaleY = availableHeight / gridHeight;
+
+            setScale(Math.min(scaleX, scaleY));
+        };
+
+        calculateScale();
+        window.addEventListener('resize', calculateScale);
+        return () => window.removeEventListener('resize', calculateScale);
+    }, [currentLayout.aspectRatio]);
 
     const handleImageDrop = (id: string, file: File) => {
         const reader = new FileReader();
@@ -40,10 +63,21 @@ function App() {
     const handleExport = async () => {
         if (!gridRef.current) return;
         try {
+            // Temporarily remove transform to capture at full 800px resolution
+            const originalTransform = gridRef.current.style.transform;
+            gridRef.current.style.transform = 'none';
+
+            // Wait a tick for the transform to be removed
+            await new Promise(resolve => setTimeout(resolve, 0));
+
             const dataUrl = await toPng(gridRef.current, {
                 cacheBust: true,
                 skipFonts: true,
             });
+
+            // Restore transform
+            gridRef.current.style.transform = originalTransform;
+
             const link = document.createElement('a');
             link.download = 'photo-grid.png';
             link.href = dataUrl;
@@ -121,27 +155,37 @@ function App() {
             </div>
 
             {/* Main Canvas Area */}
-            <div className="flex-1 flex items-center justify-center bg-gray-950 p-8 overflow-hidden">
+            <div className="flex-1 flex items-center justify-center bg-gray-950 p-4 overflow-hidden">
                 <div
-                    ref={gridRef}
-                    className="relative bg-white shadow-2xl"
                     style={{
-                        width: '800px',
-                        aspectRatio: currentLayout.aspectRatio,
+                        width: `${800 * scale}px`,
+                        height: `${(800 / currentLayout.aspectRatio) * scale}px`,
                     }}
                 >
                     <div
-                        className="w-full h-full"
+                        ref={gridRef}
+                        className="relative bg-white shadow-2xl"
                         style={{
-                            padding: `${padding}px`, // Frame padding around entire composition
+                            width: '800px',
+                            aspectRatio: currentLayout.aspectRatio,
+                            backgroundColor: '#ffffff',
+                            transformOrigin: 'top left',
+                            transform: `scale(${scale})`,
                         }}
                     >
-                        <LayoutRenderer
-                            node={activeRoot}
-                            padding={padding}
-                            onImageDrop={handleImageDrop}
-                            onImageUpdate={handleImageUpdate}
-                        />
+                        <div
+                            className="w-full h-full"
+                            style={{
+                                padding: `${padding}px`, // Frame padding around entire composition
+                            }}
+                        >
+                            <LayoutRenderer
+                                node={activeRoot}
+                                padding={padding}
+                                onImageDrop={handleImageDrop}
+                                onImageUpdate={handleImageUpdate}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
